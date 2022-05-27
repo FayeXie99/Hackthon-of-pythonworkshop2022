@@ -1,0 +1,73 @@
+import requests
+from lxml import etree
+import os
+import time
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+import base64
+import requests as req
+from PIL import Image
+from io import BytesIO
+import cv2
+from keras.models import load_model
+import numpy as np
+import pandas as pd
+
+#chromedriver下载到文件包中，需要匹配你的chrome版本
+#https://chromedriver.chromium.org/downloads
+chromedriver=r"D:\chromedriver_win32\chromedriver.exe"
+os.environ["webdriver.chrome.driver"] = chromedriver
+chrome_options = Options()
+driver = webdriver.Chrome(chromedriver,chrome_options=chrome_options)
+aimyear=2020
+
+song_name_list=[]
+singer_name_list=[]
+year=[]
+
+for y in range(2017,2021):
+    url="https://www.billboard.com/charts/year-end/"+str(y)+"/hot-100-songs/"
+    driver.get(url)
+    #time.sleep(5)
+    #获取前十个歌名和歌手！！
+    for i in range(1,21):
+        if i==11:
+            continue
+        song_xpath="/html/body/div[4]/main/div[2]/div[2]/div/div/div[2]/div["+str(i)+"]/ul/li[3]/ul/li[1]/h3"
+                   
+        singer_xpath="/html/body/div[4]/main/div[2]/div[2]/div/div/div[2]/div["+str(i)+"]/ul/li[3]/ul/li[1]/span"
+        a=driver.find_element_by_xpath(song_xpath)
+        b=driver.find_element_by_xpath(singer_xpath)
+        #print(a.text,b.text)
+        song_name_list.append(a.text)
+        singer_name_list.append(b.text)
+        year.append(y)
+time.sleep(5)
+driver.close()
+print(song_name_list)
+print(singer_name_list)
+
+import lyricsgenius
+#myid="INTTZnvXBZz7_JI86_-W8244kfve7-viwjG8g8w9BFtd9j8urZS0q9sFWriVE6qk"
+token="JG-aOrM_S8tCT4OL2VJSfNY7uYnR72EMy2CSKEhMZlQWEW-P_9JV6Uh2FxrPgskF"
+genius = lyricsgenius.Genius(token)
+genius1=lyricsgenius.Genius(token,  # Client access token from Genius Client API page
+                             skip_non_songs=True, excluded_terms=["(Remix)", "(Live)"],
+                             remove_section_headers=True)
+lyric=[]
+for i in range(len(song_name_list)):
+    if i%10==0:
+        time.sleep(5)
+    a=genius1.search_song(song_name_list[i], singer_name_list[i])
+    try:
+        lyric.append(a.lyrics)
+    except:
+        lyric.append("")
+        
+#generate dataset
+df=pd.DataFrame(song_name_list[:len(lyric)])
+df["Artist"]=singer_name_list[:len(lyric)]
+df["lyric"]=lyric[:len(lyric)]
+df["year"]=year[:len(lyric)]
+df.to_csv('total.csv',index=False)
+df
